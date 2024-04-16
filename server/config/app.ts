@@ -8,6 +8,8 @@ import userRouter from "../routes/user";
 import courseRouter from "../routes/course";
 import orderRouter from "../routes/order";
 import notificationRouter from "../routes/notification";
+import analyticsRouter from "../routes/analytics";
+import layoutRouter from "../routes/layout";
 dotenv.config();
 
 app.use(express.json({ limit: "50mb" }));
@@ -16,7 +18,7 @@ app.use(cookieParser());
 
 app.use(cors({ origin: process.env.CLIENT_URL }));
 
-app.use("/api/v1", userRouter, courseRouter, orderRouter, notificationRouter);
+app.use("/api/v1", userRouter, courseRouter, orderRouter, notificationRouter, analyticsRouter, layoutRouter);
 
 app.get("/test", (req: Request, res: Response, next: NextFunction) =>
   res.status(200).json({

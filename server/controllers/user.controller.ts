@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from "express";
-import userModel, { IUser } from "../models/user.model";
+import UserModel, { IUser } from "../models/user.model";
 import { CatchAsyncError } from "../middleware/catchAsyncErrors";
 import {
   createActivationToken,
@@ -16,7 +16,7 @@ import {
 } from "../utils/jwt";
 import { redis } from "../utils/redis";
 import jwt, { JwtPayload } from "jsonwebtoken";
-import { getUserById } from "../services/user.services";
+import { getAllUsersService, getUserById, updateBlockUnBlockUserService, updateUserRoleService } from "../services/user.services";
 import cloudinary from "cloudinary";
 
 //Register User
@@ -31,7 +31,7 @@ export const registerUser = CatchAsyncError(
   async (req: Request, res: Response, next: NextFunction) => {
     try {
       const { name, email, password, avatar } = req.body as IRegistrationBody;
-      const isEmailExist = await userModel.findOne({ email });
+      const isEmailExist = await UserModel.findOne({ email });
       if (isEmailExist) {
         return next(
           new ErrorHandler("Email already exists!,Try another.", 400)
@@ -92,11 +92,11 @@ export const activateUser = CatchAsyncError(
       }
 
       const { name, email, password } = newUser.user;
-      const isUserExists = await userModel.findOne({ email });
+      const isUserExists = await UserModel.findOne({ email });
       if (isUserExists) {
         return next(new ErrorHandler("Email already exits!", 400));
       }
-      const user = await userModel.create({
+      const user = await UserModel.create({
         name,
         email,
         password,
@@ -128,10 +128,14 @@ export const loginUser = CatchAsyncError(
           new ErrorHandler("Please enter your email and password!", 400)
         );
       }
-      const user = await userModel.findOne({ email }).select("+password");
+      const user = await UserModel.findOne({ email }).select("+password");
 
       if (!user) {
         return next(new ErrorHandler("Invalid email or password!", 400));
+      }
+
+      if(user?.isBlocked) {
+        return next(new ErrorHandler("User is blocked by Admin!", 401));
       }
 
       const isPasswordMatch = await user.comparePassword(password);
@@ -243,9 +247,9 @@ export const socialAuth = CatchAsyncError(
   async (req: Request, res: Response, next: NextFunction) => {
     try {
       const { email, name, avatar } = req.body as ISocialAuthBody;
-      const user = await userModel.findOne({ email });
+      const user = await UserModel.findOne({ email });
       if (!user) {
-        const newUser = await userModel.create({ email, name, avatar });
+        const newUser = await UserModel.create({ email, name, avatar });
         sendToken(newUser, 200, res);
       } else {
         sendToken(user, 200, res);
@@ -268,9 +272,9 @@ export const updateUserInfo = CatchAsyncError(
     try {
       const { name, email } = req.body as IUpdateUserInfo;
       const userId = req.user?._id;
-      const user = await userModel.findById(userId);
+      const user = await UserModel.findById(userId);
       if (email && user) {
-        const isEmailExist = await userModel.findOne({ email });
+        const isEmailExist = await UserModel.findOne({ email });
         if (isEmailExist) {
           return next(new ErrorHandler("Email already exists", 400));
         }
@@ -312,7 +316,7 @@ export const updateUserPassword = CatchAsyncError(
         );
       }
 
-      const user = await userModel.findById(req.user?._id).select("+password");
+      const user = await UserModel.findById(req.user?._id).select("+password");
 
       if (user?.password === undefined) {
         return next(new ErrorHandler("Invalid user!", 400));
@@ -361,7 +365,7 @@ export const updateProfilePicture = CatchAsyncError(
     try {
       const { avatar } = req.body;
       const userId = req.user?._id;
-      const user = await userModel.findById(userId);
+      const user = await UserModel.findById(userId);
 
       if (avatar && user) {
         if (user?.avatar?.public_id) {
@@ -372,7 +376,7 @@ export const updateProfilePicture = CatchAsyncError(
           });
           user.avatar = {
             public_id: myCloud.public_id,
-            url: myCloud.url,
+            url: myCloud.secure_url,
           };
         } else {
           const myCloud = await cloudinary.v2.uploader.upload(avatar, {
@@ -381,7 +385,7 @@ export const updateProfilePicture = CatchAsyncError(
           });
           user.avatar = {
             public_id: myCloud.public_id,
-            url: myCloud.url,
+            url: myCloud.secure_url,
           };
         }
       }
@@ -399,3 +403,39 @@ export const updateProfilePicture = CatchAsyncError(
     }
   }
 );
+
+// Get all users - admin
+export const getAllUsers = CatchAsyncError(
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      getAllUsersService(res);
+    } catch (error) {
+      const typedError = error as Error;
+      return next(new ErrorHandler(typedError.message, 400));
+    }
+  }
+);
+
+// Update user role - admin
+export const updateUserRole = CatchAsyncError(
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const {id,role} = req.body;
+      updateUserRoleService(res, id, role);
+    } catch (error) {
+      const typedError = error as Error;
+      return next(new ErrorHandler(typedError.message, 400));
+    }
+  }
+);
+
+// Block/ Unblock user - admin
+export const updateBlockUnBlockUser = CatchAsyncError(async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const id = req.params.id;
+    updateBlockUnBlockUserService(res, id)
+  } catch (error) {
+    const typedError = error as Error;
+    return next(new ErrorHandler(typedError.message, 400));
+  }
+})

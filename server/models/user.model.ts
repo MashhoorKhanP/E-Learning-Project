@@ -16,6 +16,7 @@ export interface IUser extends Document {
   };
   role: string;
   isVerified: boolean;
+  isBlocked: boolean;
   courses: Array<{ courseId: string }>;
   comparePassword: (password: string) => Promise<boolean>;
   signAccessToken: () => string;
@@ -53,6 +54,10 @@ const userSchema: Schema<IUser> = new mongoose.Schema(
       default: "user",
     },
     isVerified: {
+      type: Boolean,
+      default: false,
+    },
+    isBlocked: {
       type: Boolean,
       default: false,
     },
@@ -95,6 +100,6 @@ userSchema.methods.comparePassword = async function (
   return await bcrypt.compare(enteredPassword, this.password);
 };
 
-const userModel: Model<IUser> = mongoose.model("User", userSchema);
+const UserModel: Model<IUser> = mongoose.model("User", userSchema);
 
-export default userModel;
+export default UserModel;

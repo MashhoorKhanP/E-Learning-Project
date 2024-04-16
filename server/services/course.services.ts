@@ -3,7 +3,6 @@ import CourseModel from "../models/course.model";
 import { CatchAsyncError } from "../middleware/catchAsyncErrors";
 
 // Create Course
-
 export const createCourse = CatchAsyncError(
   async (data: any, res: Response) => {
     const course = await CourseModel.create(data);
@@ -14,3 +13,12 @@ export const createCourse = CatchAsyncError(
     });
   }
 );
+
+// Get all courses
+export const getAllCoursesService = async (res: Response) => {
+  const courses = await CourseModel.find().sort({ createdAt: -1 });
+  res.status(201).json({
+    success: true,
+    courses,
+  });
+};

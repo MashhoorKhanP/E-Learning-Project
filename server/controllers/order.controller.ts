@@ -2,20 +2,20 @@ import { Request, Response, NextFunction } from "express";
 import { CatchAsyncError } from "../middleware/catchAsyncErrors";
 import ErrorHandler from "../utils/ErrorHandler";
 import OrderModel, { IOrder } from "../models/order.model";
-import userModel from "../models/user.model";
+import UserModel from "../models/user.model";
 import CourseModel from "../models/course.model";
 import path from "path";
 import ejs from "ejs";
 import sendMail from "../utils/sendMail";
 import NotificationModel from "../models/notification.model";
-import { newOrder } from "../services/order.services";
+import { getAllOrdersService, newOrder } from "../services/order.services";
 
 // Create Order
 export const createOrder = CatchAsyncError(
   async (req: Request, res: Response, next: NextFunction) => {
     try {
       const { courseId, payment_info } = req.body as IOrder;
-      const user = await userModel.findById(req.user?._id);
+      const user = await UserModel.findById(req.user?._id);
 
       const isCourseExist = user?.courses.some(
         (course: any) => course._id.toString() === courseId
@@ -88,6 +88,18 @@ export const createOrder = CatchAsyncError(
       await course.save();
 
       newOrder(data, res, next);
+    } catch (error) {
+      const typedError = error as Error;
+      return next(new ErrorHandler(typedError.message, 400));
+    }
+  }
+);
+
+// Get All Orders - admin
+export const getAllOrders = CatchAsyncError(
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      getAllOrdersService(res);
     } catch (error) {
       const typedError = error as Error;
       return next(new ErrorHandler(typedError.message, 400));
