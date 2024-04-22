@@ -34,11 +34,11 @@ export const registerUser = CatchAsyncError(
       const isEmailExist = await UserModel.findOne({ email });
       if (isEmailExist) {
         return next(
-          new ErrorHandler("Email already exists!,Try another.", 400)
+          new ErrorHandler("Email already exists!, Try another.", 400)
         );
       }
       const user: IRegistrationBody = {
-        name,
+        name:name,
         email,
         password,
       };
@@ -52,12 +52,12 @@ export const registerUser = CatchAsyncError(
       );
       console.log("Activation code: " + activationCode);
       try {
-        await sendMail({
-          email: user.email,
-          subject: "Activate your account",
-          template: "activation-mail.ejs",
-          data,
-        });
+        // await sendMail({
+        //   email: user.email,
+        //   subject: "Activate your account",
+        //   template: "activation-mail.ejs",
+        //   data,
+        // });
         res.status(200).json({
           success: true,
           message: `Please check your email : ${user.email} activate your account!`,
@@ -87,6 +87,8 @@ export const activateUser = CatchAsyncError(
         req.body as IActivationRequest;
       const newUser: { user: IUser; activationCode: string } =
         await verifyToken(activation_token);
+        console.log("newUser",newUser)
+        console.log(activation_code,":",newUser.activationCode)
       if (newUser.activationCode !== activation_code) {
         return next(new ErrorHandler("Invalid activation code!", 400));
       }
@@ -104,7 +106,7 @@ export const activateUser = CatchAsyncError(
 
       res.status(201).json({
         success: true,
-        message: "User registered successfull!",
+        message: "User registered successfull!, Now Login",
       });
     } catch (error) {
       const typedError = error as Error;
@@ -159,7 +161,6 @@ export const logoutUser = CatchAsyncError(
       res.cookie("refresh_token", "", { maxAge: 1 });
       const userId = req.user?._id || "";
       redis.del(userId);
-
       res.status(200).json({
         success: true,
         message: "Logged out successfully!",
@@ -250,8 +251,9 @@ export const socialAuth = CatchAsyncError(
     try {
       const { email, name, avatar } = req.body as ISocialAuthBody;
       const user = await UserModel.findOne({ email });
+      
       if (!user) {
-        const newUser = await UserModel.create({ email, name, avatar });
+        const newUser = await UserModel.create({ email, name, avatar, isVerified:true });
         sendToken(newUser, 200, res);
       } else {
         sendToken(user, 200, res);
@@ -272,16 +274,9 @@ interface IUpdateUserInfo {
 export const updateUserInfo = CatchAsyncError(
   async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const { name, email } = req.body as IUpdateUserInfo;
+      const { name } = req.body as IUpdateUserInfo;
       const userId = req.user?._id;
       const user = await UserModel.findById(userId);
-      if (email && user) {
-        const isEmailExist = await UserModel.findOne({ email });
-        if (isEmailExist) {
-          return next(new ErrorHandler("Email already exists", 400));
-        }
-        user.email = email;
-      }
 
       if (name && user) {
         user.name = name;
